@@ -1,0 +1,145 @@
+{
+  "name": "Iron Forge — AI Response (dead_quote)",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Stages 2–5 + 7 for the dead_quote vertical. Enriches context, generates the SMS with Claude (structured output → no metadata leaks), runs the compliance gate IN CODE, sends via Twilio only if it passes, then logs the message + outcome to Supabase. Other verticals reuse this graph with a different system prompt + objection library."
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-start",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [200, 360]
+    },
+    {
+      "parameters": { "operation": "get", "tableId": "clients", "filters": { "conditions": [{ "keyName": "id", "condition": "eq", "keyValue": "={{ $json.client_id }}" }] } },
+      "id": "node-client",
+      "name": "supabase_client",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [420, 200],
+      "credentials": { "supabaseApi": { "id": "REPLACE", "name": "Supabase (service role)" } }
+    },
+    {
+      "parameters": { "operation": "getAll", "tableId": "messages", "limit": 12, "filters": { "conditions": [{ "keyName": "contact_id", "condition": "eq", "keyValue": "={{ $json.contact_id }}" }] } },
+      "id": "node-messages",
+      "name": "supabase_messages",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [420, 360],
+      "credentials": { "supabaseApi": { "id": "REPLACE", "name": "Supabase (service role)" } }
+    },
+    {
+      "parameters": { "operation": "getAll", "tableId": "vertical_intelligence", "filters": { "conditions": [{ "keyName": "vertical", "condition": "eq", "keyValue": "roofing" }, { "keyName": "trigger_type", "condition": "eq", "keyValue": "dead_quote" }] } },
+      "id": "node-intel",
+      "name": "supabase_intelligence",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [420, 520],
+      "credentials": { "supabaseApi": { "id": "REPLACE", "name": "Supabase (service role)" } }
+    },
+    {
+      "parameters": { "operation": "read", "filePath": "/prompts/dead_quote_resurrector.md" },
+      "id": "node-prompt",
+      "name": "Load System Prompt",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [640, 520]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Canonical source: code_nodes/build_context.js\n// Merges trigger + client + history + intelligence into ctx.context,\n// and attaches ctx.system_prompt (from Load System Prompt).\nreturn $input.all();"
+      },
+      "id": "node-build-context",
+      "name": "build_context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 360]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Canonical source: code_nodes/claude_generate.js\n// Calls Anthropic Messages API with output_config.format (json_schema,\n// additionalProperties:false). Model = $env.CLAUDE_MODEL (claude-sonnet-4-6).\n// Returns only {sms_text, detected_objection_category, resolution_strategy,\n// sentiment, requires_human_escalation} — no preamble, no chain-of-thought.\nreturn $input.all();"
+      },
+      "id": "node-claude",
+      "name": "claude_generate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 360]
+    },
+    {
+      "parameters": { "operation": "getAll", "tableId": "do_not_contact", "filters": { "conditions": [{ "keyName": "phone", "condition": "eq", "keyValue": "={{ $('build_context').first().json.contact_phone }}" }] } },
+      "id": "node-dnc",
+      "name": "supabase_dnc",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1080, 200],
+      "credentials": { "supabaseApi": { "id": "REPLACE", "name": "Supabase (service role)" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Canonical source: code_nodes/compliance_gate.js\n// TCPA quiet-hours, opt-out (DNC), frequency cap, HIPAA PHI filter — IN CODE.\n// Emits compliance_passed + compliance_flags (logged regardless of outcome).\nreturn $input.all();"
+      },
+      "id": "node-compliance",
+      "name": "compliance_gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 360]
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ $json.compliance_passed }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }] }
+      },
+      "id": "node-if",
+      "name": "Compliance passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1520, 360]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $('supabase_client').first().json.twilio_phone_number }}",
+        "to": "={{ $('build_context').first().json.contact_phone }}",
+        "message": "={{ $json.sms_text }}"
+      },
+      "id": "node-twilio",
+      "name": "Send SMS (Twilio)",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1740, 240],
+      "credentials": { "twilioApi": { "id": "REPLACE", "name": "Twilio (10DLC)" } }
+    },
+    {
+      "parameters": { "operation": "create", "tableId": "messages", "dataToSend": "autoMapInputData" },
+      "id": "node-log-sent",
+      "name": "Log Message (sent)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1960, 240],
+      "credentials": { "supabaseApi": { "id": "REPLACE", "name": "Supabase (service role)" } }
+    },
+    {
+      "parameters": { "operation": "create", "tableId": "messages", "dataToSend": "autoMapInputData" },
+      "id": "node-log-blocked",
+      "name": "Log Blocked + Escalate",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1740, 480],
+      "credentials": { "supabaseApi": { "id": "REPLACE", "name": "Supabase (service role)" } }
+    }
+  ],
+  "connections": {
+    "When Called": { "main": [[{ "node": "supabase_client", "type": "main", "index": 0 }, { "node": "supabase_messages", "type": "main", "index": 0 }, { "node": "supabase_intelligence", "type": "main", "index": 0 }]] },
+    "supabase_intelligence": { "main": [[{ "node": "Load System Prompt", "type": "main", "index": 0 }]] },
+    "Load System Prompt": { "main": [[{ "node": "build_context", "type": "main", "index": 0 }]] },
+    "build_context": { "main": [[{ "node": "claude_generate", "type": "main", "index": 0 }]] },
+    "claude_generate": { "main": [[{ "node": "compliance_gate", "type": "main", "index": 0 }]] },
+    "compliance_gate": { "main": [[{ "node": "Compliance passed?", "type": "main", "index": 0 }]] },
+    "Compliance passed?": { "main": [[{ "node": "Send SMS (Twilio)", "type": "main", "index": 0 }], [{ "node": "Log Blocked + Escalate", "type": "main", "index": 0 }]] },
+    "Send SMS (Twilio)": { "main": [[{ "node": "Log Message (sent)", "type": "main", "index": 0 }]] }
+  }
+}

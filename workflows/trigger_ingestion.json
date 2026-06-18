@@ -1,0 +1,86 @@
+{
+  "name": "Iron Forge — Trigger Ingestion",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Stage 1. Receives a trigger webhook from a client's CRM/PMS/AMS, validates it (code_nodes/validate_payload.js), upserts the contact, opens a conversation, and hands off to the AI Response workflow. The webhook is the single entry point for every vertical."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ironforge/trigger",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Trigger Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "ironforge-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Canonical source: code_nodes/validate_payload.js (kept in sync there).\n// Validates client_id, trigger_type, contact.phone before any downstream work.\nreturn $input.all();"
+      },
+      "id": "node-validate",
+      "name": "validate_payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "tableId": "contacts",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "node-upsert-contact",
+      "name": "Upsert Contact",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "credentials": { "supabaseApi": { "id": "REPLACE", "name": "Supabase (service role)" } }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "conversations",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "node-create-conversation",
+      "name": "Open Conversation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "credentials": { "supabaseApi": { "id": "REPLACE", "name": "Supabase (service role)" } }
+    },
+    {
+      "parameters": {
+        "workflowId": "ai_response_dead_quote",
+        "options": {}
+      },
+      "id": "node-handoff",
+      "name": "Hand off → AI Response",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ { \"status\": \"accepted\", \"conversation_id\": $json.id } }}" },
+      "id": "node-respond",
+      "name": "202 Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Trigger Webhook": { "main": [[{ "node": "validate_payload", "type": "main", "index": 0 }]] },
+    "validate_payload": { "main": [[{ "node": "Upsert Contact", "type": "main", "index": 0 }]] },
+    "Upsert Contact": { "main": [[{ "node": "Open Conversation", "type": "main", "index": 0 }]] },
+    "Open Conversation": { "main": [[{ "node": "Hand off → AI Response", "type": "main", "index": 0 }]] },
+    "Hand off → AI Response": { "main": [[{ "node": "202 Accepted", "type": "main", "index": 0 }]] }
+  }
+}

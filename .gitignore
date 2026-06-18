@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+*.env
+!.env.example
+
+# Docker volumes / local data
+caddy_data/
+caddy_config/
+n8n_data/
+n8n_db_data/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Logs
+*.log

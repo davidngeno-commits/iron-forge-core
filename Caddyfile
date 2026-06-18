@@ -1,0 +1,32 @@
+# ==============================================================
+# IRON FORGE — Caddy reverse proxy
+# Ironline Response LLC
+# ==============================================================
+# Caddy terminates TLS (auto-provisioned via Let's Encrypt) and
+# proxies to the n8n container on the private docker network.
+# The {$N8N_DOMAIN} placeholder is filled from the environment
+# (set N8N_DOMAIN in .env). Point an A record at this host first.
+# ==============================================================
+
+{$N8N_DOMAIN} {
+	encode zstd gzip
+
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# n8n needs websockets for the editor UI and live executions.
+	reverse_proxy n8n:5678 {
+		flush_interval -1
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+}
+
+# Local / no-domain fallback: `caddy run` with N8N_DOMAIN=localhost
+# serves http://localhost without trying to fetch a public cert.

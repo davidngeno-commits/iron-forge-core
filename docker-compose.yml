@@ -1,0 +1,109 @@
+# ==============================================================
+# IRON FORGE — Orchestration Stack
+# Ironline Response LLC
+# ==============================================================
+# Self-hosted n8n behind a Caddy reverse proxy (automatic TLS).
+# Postgres backs n8n's own state (executions, credentials). The
+# application database (clients, conversations, ...) lives in
+# Supabase — see db/01_schema.sql + db/02_intelligence_functions.sql.
+#
+# Quick start:
+#   cp .env.example .env   # then fill in real values
+#   docker compose up -d
+#   # n8n is served at https://${N8N_DOMAIN}/  (Caddy gets a cert automatically)
+#
+# Run fully locally without a domain/SSL (demo mode):
+#   docker compose up -d n8n-db n8n
+#   # then open http://localhost:5678
+# ==============================================================
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: ironforge-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - N8N_DOMAIN=${N8N_DOMAIN}
+    depends_on:
+      - n8n
+    networks:
+      - ironforge
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: ironforge-n8n
+    restart: unless-stopped
+    # Port is published only to localhost so Caddy is the sole public ingress.
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      # --- Host / URL ---
+      - N8N_HOST=${N8N_DOMAIN}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://${N8N_DOMAIN}/
+      - N8N_EDITOR_BASE_URL=https://${N8N_DOMAIN}/
+      # --- Auth ---
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      # --- Persistence (n8n's own state, in Postgres) ---
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=n8n-db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${N8N_DB_NAME}
+      - DB_POSTGRESDB_USER=${N8N_DB_USER}
+      - DB_POSTGRESDB_PASSWORD=${N8N_DB_PASSWORD}
+      # --- App credentials available to Code/HTTP nodes via $env ---
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-America/Chicago}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      n8n-db:
+        condition: service_healthy
+    networks:
+      - ironforge
+
+  n8n-db:
+    image: postgres:16-alpine
+    container_name: ironforge-n8n-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${N8N_DB_NAME}
+      - POSTGRES_USER=${N8N_DB_USER}
+      - POSTGRES_PASSWORD=${N8N_DB_PASSWORD}
+    volumes:
+      - n8n_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${N8N_DB_USER} -d ${N8N_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ironforge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  n8n_data:
+  n8n_db_data:
+
+networks:
+  ironforge:
+    driver: bridge
