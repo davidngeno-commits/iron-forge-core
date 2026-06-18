@@ -1,21 +1,14 @@
-# ==============================================================
-# IRON FORGE — Orchestration Stack
-# Ironline Response LLC
-# ==============================================================
-# Self-hosted n8n behind a Caddy reverse proxy (automatic TLS).
-# Postgres backs n8n's own state (executions, credentials). The
-# application database (clients, conversations, ...) lives in
-# Supabase — see db/01_schema.sql + db/02_intelligence_functions.sql.
+# Iron Forge orchestration stack: n8n behind Caddy (auto-TLS).
+# Postgres backs n8n's own state. The app database (clients, conversations, ...)
+# lives in Supabase. See db/01_schema.sql + db/02_intelligence_functions.sql.
 #
-# Quick start:
-#   cp .env.example .env   # then fill in real values
-#   docker compose up -d
-#   # n8n is served at https://${N8N_DOMAIN}/  (Caddy gets a cert automatically)
+# Quick start:  cp .env.example .env && docker compose up -d
+# Local demo (no domain/SSL):  docker compose up -d n8n-db n8n  then http://localhost:5678
 #
-# Run fully locally without a domain/SSL (demo mode):
-#   docker compose up -d n8n-db n8n
-#   # then open http://localhost:5678
-# ==============================================================
+# TODO: single n8n container, no queue mode. Fine for pilot volume, but a busy
+#   client will block the event loop on long executions. Move to
+#   EXECUTIONS_MODE=queue with a Redis broker + worker replicas before onboarding
+#   anyone with real traffic. Also no backup/cron on the n8n Postgres volume yet.
 
 services:
   caddy:

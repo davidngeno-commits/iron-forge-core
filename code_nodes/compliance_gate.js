@@ -1,24 +1,9 @@
-/**
- * Iron Forge — Code Node: compliance_gate
- * Stage 4 of the universal pipeline (Compliance Gate).
- *
- * Compliance is enforced in CODE, not left to the model. NOTHING sends
- * until this passes. Checks, in order:
- *   1. Opt-out / do-not-contact (hard stop, instant honoring)
- *   2. TCPA time-of-day window (no SMS during the contact's quiet hours)
- *   3. Message-frequency cap (per-contact daily limit)
- *   4. HIPAA content filter (no PHI in SMS for healthcare verticals)
- *
- * Emits compliance_passed + compliance_flags, which are logged on the
- * message row regardless of outcome (auditable compliance trail).
- *
- * Upstream:
- *   - $('build_context')        → context + client_id + contact_phone
- *   - $('supabase_client')      → client row (quiet hours, limits, hipaa_mode)
- *   - $('supabase_dnc')         → do_not_contact match (array; empty = clear)
- *   - $('supabase_today_count') → { count } outbound msgs to contact today
- *   - $('claude_generate')      → { sms_text } candidate message
- */
+// compliance_gate: stage 4. Compliance runs in code, not in the model. Nothing
+// sends unless this passes. Checks in order: opt-out (hard stop), TCPA quiet
+// hours, per-contact frequency cap, HIPAA PHI filter. Emits compliance_passed +
+// compliance_flags, logged on the message row either way for the audit trail.
+// Upstream: build_context, supabase_client, supabase_dnc, supabase_today_count,
+// claude_generate.
 
 const ctx = $('build_context').first().json;
 const client = $('supabase_client').first().json;
@@ -55,7 +40,7 @@ const toMin = (t) => {
 const quietStart = toMin(client.sms_quiet_hours_start || '21:00');
 const quietEnd = toMin(client.sms_quiet_hours_end || '08:00');
 
-// Quiet window wraps midnight (e.g. 21:00 → 08:00).
+// Quiet window can wrap midnight (e.g. 21:00 to 08:00), so handle both cases.
 const inQuietHours =
   quietStart > quietEnd
     ? nowMin >= quietStart || nowMin < quietEnd

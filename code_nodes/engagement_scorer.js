@@ -1,15 +1,8 @@
-/**
- * Iron Forge — Code Node: engagement_scorer
- * Support node (Outcome Logging / nightly).
- *
- * Thin client-side mirror of the DB function calculate_engagement_score().
- * Prefer calling the SQL function (it owns the canonical formula); this node
- * exists for flows that need an in-memory score without a round-trip, and to
- * document the scoring model alongside the rest of the pipeline.
- *
- * Score ∈ [0,100]:  response_rate*30 + avg_sentiment*0.4
- *                   + 15 if active in last 7d + 10 if ever converted.
- */
+// engagement_scorer: support node. Client-side mirror of the SQL function
+// calculate_engagement_score(). Prefer the SQL function; it owns the canonical
+// formula. This exists for flows that need a score in-memory without a DB
+// round-trip. Score 0-100: response_rate*30 + avg_sentiment*0.4, +15 if active
+// in the last 7 days, +10 if ever converted.
 
 const SENTIMENT_WEIGHT = {
   positive: 80,

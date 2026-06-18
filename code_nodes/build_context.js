@@ -1,18 +1,7 @@
-/**
- * Iron Forge — Code Node: build_context
- * Stage 2 of the universal pipeline (Context Enrichment).
- *
- * Merges the validated trigger with the contact history + client profile
- * (fetched by upstream Supabase nodes) into a single structured context
- * object that becomes the injected context for the Claude call in stage 3.
- *
- * Upstream inputs (wire these in the workflow):
- *   - $('validate_payload')      → trigger
- *   - $('supabase_client')       → client row
- *   - $('supabase_contact')      → contact row (or null on first touch)
- *   - $('supabase_messages')     → prior messages for this contact (array)
- *   - $('supabase_intelligence') → top strategies for this vertical/trigger
- */
+// build_context: stage 2. Merge trigger + client + history + intelligence into
+// one context object that gets injected into the stage-3 Claude call.
+// Upstream nodes feeding this: validate_payload, supabase_client,
+// supabase_contact (null on first touch), supabase_messages, supabase_intelligence.
 
 const trigger = $('validate_payload').first().json;
 const client = $('supabase_client').first().json;
@@ -20,7 +9,7 @@ const contact = $('supabase_contact').first()?.json ?? null;
 const history = ($('supabase_messages').all() ?? []).map((i) => i.json);
 const intel = ($('supabase_intelligence').all() ?? []).map((i) => i.json);
 
-// Compact the message history to what the model actually needs.
+// Last 12 turns only, to keep the prompt small and the call cheap.
 const recentHistory = history
   .slice(-12)
   .map((m) => ({
@@ -30,7 +19,7 @@ const recentHistory = history
     at: m.created_at,
   }));
 
-// Rank known-effective strategies for this objection space (data moat → prompt).
+// Rank strategies by real win rate so the prompt leads with what converts.
 const rankedStrategies = intel
   .filter((s) => s.times_used > 0)
   .sort((a, b) => Number(b.conversion_rate) - Number(a.conversion_rate))

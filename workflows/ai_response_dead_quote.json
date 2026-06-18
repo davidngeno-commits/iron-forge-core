@@ -1,5 +1,5 @@
 {
-  "name": "Iron Forge — AI Response (dead_quote)",
+  "name": "Iron Forge - AI Response (dead_quote)",
   "active": false,
   "settings": { "executionOrder": "v1" },
   "meta": {
@@ -61,7 +61,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Canonical source: code_nodes/claude_generate.js\n// Calls Anthropic Messages API with output_config.format (json_schema,\n// additionalProperties:false). Model = $env.CLAUDE_MODEL (claude-sonnet-4-6).\n// Returns only {sms_text, detected_objection_category, resolution_strategy,\n// sentiment, requires_human_escalation} — no preamble, no chain-of-thought.\nreturn $input.all();"
+        "jsCode": "// Canonical source: code_nodes/claude_generate.js\n// Calls Anthropic Messages API with output_config.format (json_schema,\n// additionalProperties:false). Model = $env.CLAUDE_MODEL (claude-sonnet-4-6).\n// Returns only {sms_text, detected_objection_category, resolution_strategy,\n// sentiment, requires_human_escalation}. No preamble, no chain-of-thought.\nreturn $input.all();"
       },
       "id": "node-claude",
       "name": "claude_generate",
@@ -80,7 +80,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Canonical source: code_nodes/compliance_gate.js\n// TCPA quiet-hours, opt-out (DNC), frequency cap, HIPAA PHI filter — IN CODE.\n// Emits compliance_passed + compliance_flags (logged regardless of outcome).\nreturn $input.all();"
+        "jsCode": "// Canonical source: code_nodes/compliance_gate.js\n// TCPA quiet-hours, opt-out (DNC), frequency cap, HIPAA PHI filter, in code.\n// Emits compliance_passed + compliance_flags (logged regardless of outcome).\nreturn $input.all();"
       },
       "id": "node-compliance",
       "name": "compliance_gate",

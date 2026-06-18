@@ -1,7 +1,4 @@
-# ==============================================================
-# IRON FORGE — Caddy reverse proxy
-# Ironline Response LLC
-# ==============================================================
+# Iron Forge: Caddy reverse proxy.
 # Caddy terminates TLS (auto-provisioned via Let's Encrypt) and
 # proxies to the n8n container on the private docker network.
 # The {$N8N_DOMAIN} placeholder is filled from the environment

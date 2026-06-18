@@ -35,7 +35,7 @@ Read the latest inbound message (if any) and the history. Classify the live obje
 of: `price`, `timing`, `competitor`, `trust`. Pick the resolution strategy from
 `proven_strategies` with the best win rate for that objection; if none is listed, choose the
 single most credible value-based angle. Report which objection and strategy you used in the
-structured fields (this trains the data moat).
+structured fields (this is what the vertical_intelligence ranking learns from).
 
 ## When to hand off
 If the contact is angry, asks to stop, requests something outside your authority (large

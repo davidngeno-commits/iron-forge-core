@@ -1,15 +1,6 @@
-/**
- * Iron Forge — Code Node: validate_payload
- * Stage 1 of the universal pipeline (Trigger Ingestion).
- *
- * Validates the inbound trigger webhook before any downstream work.
- * A malformed payload is rejected here, loudly, rather than failing
- * deep in the Claude/Twilio path. n8n Code Node ("Run Once for All Items").
- *
- * Expected webhook body:
- *   { client_id, trigger_type, contact: { phone, name?, email? },
- *     trigger_data?: {...} }
- */
+// validate_payload: stage 1. Reject bad triggers here so we don't pay for a
+// Claude call or a Twilio send on garbage. n8n Code node, run once for all items.
+// Body: { client_id, trigger_type, contact:{phone,name?,email?}, trigger_data? }
 
 const REQUIRED_TRIGGER_TYPES = [
   'missed_call',
@@ -18,11 +9,11 @@ const REQUIRED_TRIGGER_TYPES = [
   'treatment_incomplete',
 ];
 
-// E.164-ish: optional +, 10–15 digits.
+// E.164-ish: optional +, 10-15 digits.
 const PHONE_RE = /^\+?[1-9]\d{9,14}$/;
 
 function fail(reason, payload) {
-  // Surfaces as a node error → routed to the Error Supervisor / DLQ.
+  // Throwing routes the item to the error supervisor / dead-letter queue.
   throw new Error(`validate_payload: ${reason} :: ${JSON.stringify(payload)}`);
 }
 

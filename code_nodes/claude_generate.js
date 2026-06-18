@@ -1,25 +1,14 @@
-/**
- * Iron Forge — Code Node: claude_generate
- * Stage 3 of the universal pipeline (AI Conversation Generation).
- *
- * Calls the Anthropic Messages API to produce the outbound SMS for a
- * vertical, using the vertical's system prompt + the injected context
- * from build_context.
- *
- * METADATA-LEAK PREVENTION:
- *   The request uses structured outputs (output_config.format, json_schema
- *   with additionalProperties:false). The model can ONLY return the declared
- *   fields — no preamble, no "Here's a draft:", no chain-of-thought. We send
- *   `sms_text` to Twilio and log the rest (objection/strategy/sentiment) to
- *   the data-moat tables. `requires_human_escalation` lets the model hand off
- *   cleanly; the compliance_gate treats it as a hard stop.
- *
- * Model: $env.CLAUDE_MODEL (default claude-sonnet-4-6) — current Sonnet is
- *   the right cost/latency tier for high-volume per-message generation and
- *   protects gross margin. Structured outputs are supported on Sonnet 4.6.
- *
- * Requires: ANTHROPIC_API_KEY in the environment (never hardcode).
- */
+// claude_generate: stage 3. Calls the Anthropic Messages API to write the
+// outbound SMS from the vertical system prompt plus the injected context.
+//
+// Why structured outputs: the request sets output_config.format with a json
+// schema (additionalProperties:false), so the model can only return the declared
+// fields. No "here's a draft" preamble and no chain-of-thought leaking into the
+// SMS body. sms_text goes to Twilio; the rest gets logged.
+// requires_human_escalation lets the model hand off; the gate treats it as a stop.
+//
+// Model: $env.CLAUDE_MODEL (default claude-sonnet-4-6) for cost and latency at
+// volume. ANTHROPIC_API_KEY comes from the environment, never hardcoded.
 
 const ctx = $('build_context').first().json;
 const model = $env.CLAUDE_MODEL || 'claude-sonnet-4-6';
@@ -33,7 +22,7 @@ if (!systemPrompt) {
   throw new Error('claude_generate: missing vertical system prompt (ctx.system_prompt)');
 }
 
-// Strict response contract — the leak guard.
+// Strict response contract. This is the leak guard.
 const RESPONSE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -96,7 +85,7 @@ if (!res.ok) {
 
 const data = await res.json();
 
-// Safety refusal — surface, don't send.
+// Safety refusal: surface it, don't send.
 if (data.stop_reason === 'refusal') {
   return [
     {

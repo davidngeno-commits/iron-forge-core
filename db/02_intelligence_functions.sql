@@ -1,13 +1,6 @@
--- ==============================================================
--- IRON FORGE — Supabase Functions, Triggers & Realtime
--- Ironline Response LLC
--- File 2 of 2 — RUN THIS SECOND (after 01_schema.sql)
--- ==============================================================
--- Reconstructed from the Iron Forge design briefing. These objects
--- implement the "data moat" layer: auto-updated client metrics, the
--- nightly intelligence aggregation, one-call client onboarding, and
--- the realtime + RLS posture for the client portal.
--- ==============================================================
+-- Iron Forge: Supabase functions, triggers, realtime. Run after 01_schema.sql.
+-- Auto-updated client metrics, the nightly intelligence rollup, one-call client
+-- onboarding, and the realtime + RLS setup for the client portal.
 
 -- ==============================================================
 -- 1. AUTO-UPDATE CLIENT METRICS WHEN A CONVERSATION CONVERTS
@@ -197,7 +190,7 @@ CREATE POLICY "Portal reads own appointments"  ON appointments
     FOR SELECT TO authenticated USING (client_id = current_portal_client_id());
 
 -- ==============================================================
--- 5. REALTIME — stream state changes to the portal
+-- 5. REALTIME: stream state changes to the portal
 -- ==============================================================
 -- Adds the live-updating tables to the supabase_realtime publication so
 -- the client portal reflects conversation/message/payment/appointment
